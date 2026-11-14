@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { LeaderPortal } from '@/components/leader-portal'
+import { initialMembers, LeaderPortal, type AttendanceStatus, type ChoirMember } from '@/components/leader-portal'
 import {
   Activity,
   ArrowDownToLine,
@@ -138,7 +138,12 @@ function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'leader') => void 
   return <main className="login-page"><div className="login-decoration"><div className="login-orb login-orb-one" /><div className="login-orb login-orb-two" /><div className="login-verse"><span className="verse-mark">“</span><p>Sing to the Lord a new song; sing to the Lord, all the earth.</p><span>PSALM 96:1</span></div></div><section className="login-panel"><div className="login-brand"><BrandMark /><span className="brand-text">mashenyi<span>ATTENDANCE MANAGEMENT</span></span></div><form className="login-form-wrap" onSubmit={submitLogin}><div className="login-eyebrow"><LockKeyhole size={14} /> SECURE AREA</div><h1>Welcome back.</h1><p>Sign in to access your choir workspace.</p><div className="login-role-switch" role="group" aria-label="Choose your account type"><button type="button" className={role === 'admin' ? 'login-role-active' : ''} onClick={() => setRole('admin')}><ShieldCheck size={15} /> Administrator</button><button type="button" className={role === 'leader' ? 'login-role-active' : ''} onClick={() => setRole('leader')}><Music2 size={15} /> Choir leader</button></div><label>Email address<input type="email" name="email" required autoComplete="username" placeholder={role === 'admin' ? 'admin@example.org' : 'leader@example.org'} /></label><label>Password<input type="password" name="password" required minLength={8} autoComplete="current-password" placeholder="Enter your password" /></label>{error && <p className="login-error" role="alert">{error}</p>}<button className="button-primary login-submit" type="submit">Sign in as {role === 'admin' ? 'administrator' : 'choir leader'} <ChevronRight size={16} /></button><div className="login-note"><ShieldCheck size={15} /><span>{role === 'admin' ? 'Administrator access' : 'Assigned choir access'}</span></div><p className="demo-note">Demo only: sign-in is not connected to a secure authentication service.</p></form><span className="login-footer">ADEPR MASHENYI · ATTENDANCE MANAGEMENT</span></section></main>
 }
 
+function MemberDirectory({ members }: { members: ChoirMember[] }) {
+  return <section className="panel member-directory-panel"><div className="panel-header"><div><h2>All choir members</h2><p>Administrator view · roster records across all choirs</p></div><span className="admin-access-badge"><ShieldCheck size={14} /> All choirs</span></div><div className="member-directory-choirs">{choirs.map((choir) => <article className="member-directory-choir" key={choir.name}><div className={`choir-avatar avatar-${choir.color}`}>{choir.name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</div><div><strong>{choir.name}</strong><span>{choir.members} members</span></div><span className="directory-record-count">{members.filter((member) => member.choir === choir.name).length} listed</span></article>)}</div><div className="member-directory-heading"><div><h3>Member roster</h3><p>Every roster record is visible to administrators.</p></div><span>{members.length} records</span></div><div className="table-wrap"><table><thead><tr><th>MEMBER</th><th>CHOIR</th><th>VOICE PART</th><th>ATTENDANCE</th></tr></thead><tbody>{members.map((member) => <tr key={member.id}><td><span className="leader-cell"><span className="avatar avatar-leader">{member.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}</span><span>{member.name}</span></span></td><td><span className="table-choir"><span className="table-choir-dot" />{member.choir}</span></td><td>{member.role}</td><td><span className={`directory-status directory-status-${member.status.toLowerCase()}`}>{member.status}</span></td></tr>)}</tbody></table>{members.length === 0 && <div className="empty-reports">No member records have been added yet.</div>}</div><p className="directory-demo-note">Roster entries are demo records for this preview; choir membership totals are sample figures.</p></section>
+}
+
 export function AdminDashboard() {
+  const [members, setMembers] = useState(initialMembers)
   const [reports, setReports] = useState(initialReports)
   const [activeNav, setActiveNav] = useState('Overview')
   const [filter, setFilter] = useState('All reports')
@@ -150,11 +155,22 @@ export function AdminDashboard() {
   const [notice, setNotice] = useState('')
 
   const pendingCount = reports.filter((report) => report.status === 'Pending').length
+  const initialMemberCount = initialMembers.length
+  const totalMemberCount = 221 + Math.max(0, members.length - initialMemberCount)
+  const assignedChoirMembers = members.filter((member) => member.choir === 'Abizera Yesu')
   const filteredReports = useMemo(() => reports.filter((report) => {
     const matchesFilter = filter === 'All reports' || report.status === filter
     const matchesSearch = `${report.id} ${report.choir} ${report.leader}`.toLowerCase().includes(query.toLowerCase())
     return matchesFilter && matchesSearch
   }), [filter, query, reports])
+
+  function addLeaderMember(member: { name: string; role: string }) {
+    setMembers((current) => [...current, { ...member, id: crypto.randomUUID(), status: 'Absent', choir: 'Abizera Yesu' }])
+  }
+
+  function updateLeaderAttendance(id: string, status: AttendanceStatus) {
+    setMembers((current) => current.map((member) => member.id === id ? { ...member, status } : member))
+  }
 
   function decideReport(id: string, status: ReportStatus) {
     setReports((current) => current.map((report) => report.id === id ? { ...report, status } : report))
@@ -173,7 +189,7 @@ export function AdminDashboard() {
   }
 
   if (!signedIn) return <LoginScreen onLogin={(role) => { setCurrentRole(role); setSignedIn(true) }} />
-  if (currentRole === 'leader') return <LeaderPortal onSignOut={() => setSignedIn(false)} onSwitchToAdmin={() => setCurrentRole('admin')} />
+  if (currentRole === 'leader') return <LeaderPortal onSignOut={() => setSignedIn(false)} onSwitchToAdmin={() => setCurrentRole('admin')} members={assignedChoirMembers} memberTotal={48 + Math.max(0, assignedChoirMembers.length - initialMembers.filter((member) => member.choir === 'Abizera Yesu').length)} onAddMember={addLeaderMember} onUpdateAttendance={updateLeaderAttendance} />
 
   return <div className="admin-shell">
     <Sidebar active={activeNav} onSelect={setActiveNav} onSignOut={() => setSignedIn(false)} mobileOpen={mobileOpen} closeMobile={() => setMobileOpen(false)} />
@@ -181,8 +197,9 @@ export function AdminDashboard() {
       <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><div className="breadcrumb">Workspace <ChevronRight size={14} /> <strong>{activeNav}</strong></div></div><div className="topbar-right"><span className="live-status"><i /> All systems operational</span><button className="role-switch-button" onClick={() => setCurrentRole('leader')}><Users size={14} /> Leader portal</button><button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><i /></button><div className="topbar-divider" /><div className="topbar-admin"><div className="avatar avatar-admin">DM</div><ChevronDown size={14} /></div></div></header>
       <div className="page-content">
         <div className="welcome-row"><div><div className="page-kicker">THURSDAY, NOVEMBER 12, 2026 <span>·</span> ADEPR MASHENYI</div><h1>{activeNav === 'Overview' ? 'Good morning, Daniel' : activeNav}</h1><p>{activeNav === 'Overview' ? 'Here’s what’s happening across your choirs today.' : `Monitor and manage ${activeNav.toLowerCase()} across ADEPR Mashenyi.`}</p></div><button className="button-secondary export-button" onClick={downloadCsv}><ArrowDownToLine size={16} /> Export reports</button></div>
+        {activeNav === 'Choirs & members' ? <MemberDirectory members={members} /> : <>
         <section className="stats-grid" aria-label="Attendance overview statistics">
-          <article className="stat-card"><div className="stat-top"><span className="stat-icon icon-indigo"><Users size={18} /></span><span className="stat-trend trend-up"><ArrowUpRight size={13} /> 8.2%</span></div><span className="stat-label">CHOIR MEMBERS</span><strong>221</strong><span className="stat-foot">Across 5 active choirs</span></article>
+          <article className="stat-card"><div className="stat-top"><span className="stat-icon icon-indigo"><Users size={18} /></span><span className="stat-trend trend-up"><ArrowUpRight size={13} /> 8.2%</span></div><span className="stat-label">CHOIR MEMBERS</span><strong>{totalMemberCount}</strong><span className="stat-foot">Across 5 active choirs</span></article>
           <article className="stat-card"><div className="stat-top"><span className="stat-icon icon-gold"><FileText size={18} /></span><span className="stat-trend trend-up"><ArrowUpRight size={13} /> 12.5%</span></div><span className="stat-label">REPORTS THIS MONTH</span><strong>28</strong><span className="stat-foot">6 submitted this week</span></article>
           <article className="stat-card stat-pending-card"><div className="stat-top"><span className="stat-icon icon-orange"><Clock3 size={18} /></span><span className="stat-tag">NEEDS REVIEW</span></div><span className="stat-label">PENDING APPROVAL</span><strong>{String(pendingCount).padStart(2, '0')}</strong><span className="stat-foot">Awaiting your review</span></article>
           <article className="stat-card"><div className="stat-top"><span className="stat-icon icon-green"><Activity size={18} /></span><span className="stat-trend trend-up"><ArrowUpRight size={13} /> 3.1%</span></div><span className="stat-label">AVERAGE ATTENDANCE</span><strong>87<span className="stat-percent">%</span></strong><span className="stat-foot">Up from 83% last month</span></article>
@@ -194,6 +211,7 @@ export function AdminDashboard() {
         </div>
 
         <section className="panel reports-panel"><div className="reports-heading"><div><div className="title-with-count"><h2>Recent attendance reports</h2><span className="report-count">{filteredReports.length}</span></div><p>Review submissions from your choir leaders</p></div><div className="report-tools"><label className="search-field"><Search size={15} /><input aria-label="Search reports" placeholder="Search reports..." value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-select"><Filter size={14} /><select aria-label="Filter reports" value={filter} onChange={(event) => setFilter(event.target.value)}><option>All reports</option><option>Pending</option><option>Approved</option><option>Rejected</option></select><ChevronDown size={13} /></label></div></div><div className="table-wrap"><table><thead><tr><th>REPORT</th><th>CHOIR</th><th>SUBMITTED BY</th><th>ATTENDANCE</th><th>STATUS</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>{filteredReports.map((report) => <tr key={report.id} onClick={() => setSelectedReport(report)} className="report-row"><td><span className="report-id">{report.id}</span><span className="report-date">{report.date}</span></td><td><span className="table-choir"><span className="table-choir-dot" />{report.choir}</span></td><td><span className="leader-cell"><span className="avatar avatar-leader">{report.leader.split(' ').map((word) => word[0]).join('').slice(0, 2)}</span><span>{report.leader}</span></span></td><td><span className="attendance-cell"><strong>{report.present}</strong><span> / {report.present + report.absent} present</span></span></td><td><StatusPill status={report.status} /></td><td><button className="row-action" aria-label={`Review ${report.id}`} onClick={(event) => { event.stopPropagation(); setSelectedReport(report) }}><ChevronRight size={16} /></button></td></tr>)}</tbody></table>{filteredReports.length === 0 && <div className="empty-reports">No reports match your search.</div>}</div><div className="table-footer"><span>Showing <strong>{filteredReports.length}</strong> of <strong>{reports.length}</strong> reports</span><button onClick={() => setActiveNav('Attendance reports')}>View all reports <ArrowUpRight size={14} /></button></div></section>
+        </>}
         <footer className="page-footer"><span>© 2026 ADEPR Mashenyi · Choir Attendance Management</span><span><span className="footer-lock"><LockKeyhole size={12} /> Admin workspace</span><span className="footer-dot">·</span>Data shown is a demonstration</span></footer>
       </div>
     </main>
