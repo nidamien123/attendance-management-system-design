@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { LeaderPortal } from '@/components/leader-portal'
 import {
   Activity,
   ArrowDownToLine,
@@ -20,6 +21,7 @@ import {
   LogOut,
   Menu,
   MoreHorizontal,
+  Music2,
   Search,
   Settings2,
   ShieldCheck,
@@ -117,8 +119,23 @@ function ReviewDialog({ report, onClose, onDecision }: { report: Report; onClose
   </div>
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
-  return <main className="login-page"><div className="login-decoration"><div className="login-orb login-orb-one" /><div className="login-orb login-orb-two" /><div className="login-verse"><span className="verse-mark">“</span><p>Sing to the Lord a new song; sing to the Lord, all the earth.</p><span>PSALM 96:1</span></div></div><section className="login-panel"><div className="login-brand"><BrandMark /><span className="brand-text">mashenyi<span>CHOIR ADMIN</span></span></div><div className="login-form-wrap"><div className="login-eyebrow"><LockKeyhole size={14} /> ADMINISTRATOR ACCESS</div><h1>Welcome back.</h1><p>Sign in to oversee attendance and reports.</p><label>Email address<input type="email" defaultValue="admin@mashenyi.org" autoComplete="username" /></label><label>Password<input type="password" defaultValue="mashenyi2026" autoComplete="current-password" /></label><button className="button-primary login-submit" onClick={onLogin}>Sign in to dashboard <ChevronRight size={16} /></button><div className="login-note"><ShieldCheck size={15} /><span>Restricted to authorized administrators</span></div><p className="demo-note">Interactive preview only — authentication is not connected.</p></div><span className="login-footer">ADEPR MASHENYI · ATTENDANCE MANAGEMENT</span></section></main>
+function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'leader') => void }) {
+  const [role, setRole] = useState<'admin' | 'leader'>('admin')
+  const [error, setError] = useState('')
+
+  function submitLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const password = String(formData.get('password') || '')
+    if (password.length < 8) {
+      setError('Enter a password with at least 8 characters.')
+      return
+    }
+    setError('')
+    onLogin(role)
+  }
+
+  return <main className="login-page"><div className="login-decoration"><div className="login-orb login-orb-one" /><div className="login-orb login-orb-two" /><div className="login-verse"><span className="verse-mark">“</span><p>Sing to the Lord a new song; sing to the Lord, all the earth.</p><span>PSALM 96:1</span></div></div><section className="login-panel"><div className="login-brand"><BrandMark /><span className="brand-text">mashenyi<span>ATTENDANCE MANAGEMENT</span></span></div><form className="login-form-wrap" onSubmit={submitLogin}><div className="login-eyebrow"><LockKeyhole size={14} /> SECURE AREA</div><h1>Welcome back.</h1><p>Sign in to access your choir workspace.</p><div className="login-role-switch" role="group" aria-label="Choose your account type"><button type="button" className={role === 'admin' ? 'login-role-active' : ''} onClick={() => setRole('admin')}><ShieldCheck size={15} /> Administrator</button><button type="button" className={role === 'leader' ? 'login-role-active' : ''} onClick={() => setRole('leader')}><Music2 size={15} /> Choir leader</button></div><label>Email address<input type="email" name="email" required autoComplete="username" placeholder={role === 'admin' ? 'admin@example.org' : 'leader@example.org'} /></label><label>Password<input type="password" name="password" required minLength={8} autoComplete="current-password" placeholder="Enter your password" /></label>{error && <p className="login-error" role="alert">{error}</p>}<button className="button-primary login-submit" type="submit">Sign in as {role === 'admin' ? 'administrator' : 'choir leader'} <ChevronRight size={16} /></button><div className="login-note"><ShieldCheck size={15} /><span>{role === 'admin' ? 'Administrator access' : 'Assigned choir access'}</span></div><p className="demo-note">Demo only: sign-in is not connected to a secure authentication service.</p></form><span className="login-footer">ADEPR MASHENYI · ATTENDANCE MANAGEMENT</span></section></main>
 }
 
 export function AdminDashboard() {
@@ -128,7 +145,8 @@ export function AdminDashboard() {
   const [query, setQuery] = useState('')
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [signedIn, setSignedIn] = useState(true)
+  const [signedIn, setSignedIn] = useState(false)
+  const [currentRole, setCurrentRole] = useState<'admin' | 'leader'>('admin')
   const [notice, setNotice] = useState('')
 
   const pendingCount = reports.filter((report) => report.status === 'Pending').length
@@ -154,12 +172,13 @@ export function AdminDashboard() {
     URL.revokeObjectURL(link.href)
   }
 
-  if (!signedIn) return <LoginScreen onLogin={() => setSignedIn(true)} />
+  if (!signedIn) return <LoginScreen onLogin={(role) => { setCurrentRole(role); setSignedIn(true) }} />
+  if (currentRole === 'leader') return <LeaderPortal onSignOut={() => setSignedIn(false)} onSwitchToAdmin={() => setCurrentRole('admin')} />
 
   return <div className="admin-shell">
     <Sidebar active={activeNav} onSelect={setActiveNav} onSignOut={() => setSignedIn(false)} mobileOpen={mobileOpen} closeMobile={() => setMobileOpen(false)} />
     <main className="main-area">
-      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><div className="breadcrumb">Workspace <ChevronRight size={14} /> <strong>{activeNav}</strong></div></div><div className="topbar-right"><span className="live-status"><i /> All systems operational</span><button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><i /></button><div className="topbar-divider" /><div className="topbar-admin"><div className="avatar avatar-admin">DM</div><ChevronDown size={14} /></div></div></header>
+      <header className="topbar"><div className="topbar-left"><button className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20} /></button><div className="breadcrumb">Workspace <ChevronRight size={14} /> <strong>{activeNav}</strong></div></div><div className="topbar-right"><span className="live-status"><i /> All systems operational</span><button className="role-switch-button" onClick={() => setCurrentRole('leader')}><Users size={14} /> Leader portal</button><button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><i /></button><div className="topbar-divider" /><div className="topbar-admin"><div className="avatar avatar-admin">DM</div><ChevronDown size={14} /></div></div></header>
       <div className="page-content">
         <div className="welcome-row"><div><div className="page-kicker">THURSDAY, NOVEMBER 12, 2026 <span>·</span> ADEPR MASHENYI</div><h1>{activeNav === 'Overview' ? 'Good morning, Daniel' : activeNav}</h1><p>{activeNav === 'Overview' ? 'Here’s what’s happening across your choirs today.' : `Monitor and manage ${activeNav.toLowerCase()} across ADEPR Mashenyi.`}</p></div><button className="button-secondary export-button" onClick={downloadCsv}><ArrowDownToLine size={16} /> Export reports</button></div>
         <section className="stats-grid" aria-label="Attendance overview statistics">
